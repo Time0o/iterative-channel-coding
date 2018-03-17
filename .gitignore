@@ -1,0 +1,7 @@
+.*.swp
+benchmark/
+bin/
+obj/
+obj/debug/
+tmp/
+vgcore*

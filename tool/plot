@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+
+import csv
+import math
+import os
+import sys
+
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({
+    'axes.titlesize'   : 18,
+    'axes.labelsize'   : 18,
+    'mathtext.fontset' : 'stix',
+    'font.family'      : 'STIXGeneral'
+})
+
+def plot_benchmarks(benchmarks):
+    gs0 = gridspec.GridSpec(1, 2)
+    gs00 = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=gs0[0], hspace=0.5)
+    gs01 = gridspec.GridSpecFromSubplotSpec(len(benchmarks), 1, subplot_spec=gs0[1], hspace=0.5)
+
+    ax_wer = plt.subplot(gs00[0])
+    ax_time = plt.subplot(gs00[1])
+    ax_bar = [plt.subplot(gs01[i]) for i in range(0, len(benchmarks))]
+
+    # plot benchmarks results
+    for i, bm in enumerate(benchmarks):
+        name, data = bm
+
+        # Parse csv data
+        EbN0 = []
+        WER = []
+        alpha = []
+        time = []
+        percent_correct = []
+        percent_incorrect = []
+        percent_failures = []
+
+        for row in data:
+            correct = int(row['correct'])
+            incorrect = int(row['incorrect'])
+            failures = int(row['failures'])
+            total = correct + incorrect + failures
+
+            wer = (incorrect + failures) / total
+            if math.isclose(wer, 0.0):
+                break
+
+            EbN0.append(float(row['EbN0']))
+            WER.append(wer)
+            alpha.append(float(row['alpha']))
+            time.append(10e6 * float(row['time']))
+
+            percent_correct.append(100.0 * float(correct) / float(total))
+            percent_incorrect.append(100.0 * float(incorrect) / float(total))
+            percent_failures.append(100.0 * float(failures) / float(total))
+
+        # WER plot
+        ax_wer.plot(EbN0, WER, label=name)
+        ax_wer.set_yscale('log')
+        ax_wer.set_yticks(np.logspace(-3.0, 0.0, num=4))
+
+        ax_wer.set_title(r'WER = $f\ \left( \frac{E_b}{N_0} [dB] \right)$', y=1.06)
+        ax_wer.set_xlabel(r'$\frac{E_b}{N_0}$ [dB]', horizontalalignment='right', x=1.0)
+        ax_wer.set_ylabel('WER')
+        ax_wer.grid(linestyle=':', which='both')
+        ax_wer.legend()
+
+        # execution time plot
+        ax_time.plot(EbN0, time, label=name)
+
+        ax_time.set_title('Execution Time')
+        ax_time.set_xlabel(r'$\frac{E_b}{N_0}\ [dB]$', horizontalalignment='right', x=1.0)
+        ax_time.set_ylabel(r'$\frac{t_{exec}}{\mu s}$')
+        ax_time.grid(True)
+        ax_time.legend()
+
+        # reconstruction result plots
+        ax_bar[i].stackplot(EbN0, (percent_correct, percent_incorrect, percent_failures),
+                            colors=('green', 'orange', 'red'))
+
+        ax_bar[i].set_title('Reconstruction Results (' + name + ')')
+        if i != len(benchmarks) - 1:
+            ax_bar[i].set_xticklabels([])
+        ax_bar[i].set_ylabel('%')
+        ax_bar[i].legend(['correct', 'incorrect', 'failures'])
+
+    plt.show()
+
+
+if __name__ == '__main__':
+    classical = None
+    benchmarks = []
+
+    for root, dirs, files in os.walk(sys.argv[1]):
+        csv_files = []
+        for filename in files:
+            if filename.endswith('.csv'):
+                csv_files.append(filename)
+
+        for csv_file in sorted(csv_files):
+            benchmark_name = csv_file[:csv_file.find('.csv')]
+            with open(os.path.join(root, csv_file)) as benchmark_csv:
+                benchmark_data = []
+                reader = csv.DictReader(benchmark_csv)
+                for row in reader:
+                    benchmark_data.append(row)
+
+                benchmarks.append((benchmark_name, benchmark_data))
+
+    plot_benchmarks(benchmarks)
