@@ -16,24 +16,13 @@
 /*== debug utility functions =================================================*/
 
 #ifndef NDEBUG
-static std::string sprint_word(char const *name, std::vector<int> const &vect)
+template<typename T>
+static std::string sprint_word(char const *name, std::vector<T> const &vect)
 {
     std::stringstream ss;
     ss << name << " = (";
-    for (int i : vect)
-        ss << i << " ";
-    ss << ")";
-    return ss.str();
-}
-
-static std::string sprint_word(char const *name, std::vector<double> const &vect)
-{
-    std::stringstream ss;
-    ss << name << " = (";
-    ss << std::fixed << std::setprecision(2);
-    for (double d : vect)
-        ss << d << " ";
-    ss << ")";
+    for (size_t i = 0u; i < vect.size(); ++i)
+        ss << vect[i] << (i == vect.size() - 1 ? ')' : ' ');
     return ss.str();
 }
 
