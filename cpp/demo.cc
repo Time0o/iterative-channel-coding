@@ -23,6 +23,12 @@ int main()
 
     std::cout << '\n';
 
+    // WBF
+    WBF wbf(H_bf);
+    wbf.decode(b_bf);
+
+    std::cout << '\n';
+
     // One Step MLG
     CtrlMat H1(15, 7, 5, "11010001", true);
 
