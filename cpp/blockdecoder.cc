@@ -286,10 +286,12 @@ static bool mlg_decode(CtrlMat const &H, int max_iter,
 
     for (int j = 0; j < H.n; ++j) {
         out[j] = in[j] < 0.0 ? 1 : 0;
-        if (soft)
-            r[j] = std::round(in[j] * max);
-        else
+        if (soft) {
+            int q = std::round(in[j] * max);
+            r[j] = std::min(std::max(q, min), max);
+        } else {
             r[j] = out[j] ? min : max;
+        }
     }
 
 #ifndef NDEBUG
