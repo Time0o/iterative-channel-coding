@@ -127,7 +127,7 @@ int main(int argc, char **argv)
 {
     if (argc != 7) {
         std::cout << "Usage: " << argv[0]
-                  << " n l dmin h (ortho|non_ortho) csvdir\n";
+                  << " n l dmin h (ortho|nonortho) csvdir\n";
         return -1;
     }
 
@@ -141,7 +141,7 @@ int main(int argc, char **argv)
     std::string ortho(argv[5]);
     if (ortho == "ortho")
         is_ortho = true;
-    else if (ortho == "non_ortho")
+    else if (ortho == "nonortho")
         is_ortho = false;
     else
         throw std::invalid_argument("did not recognize: '" + ortho + "'");

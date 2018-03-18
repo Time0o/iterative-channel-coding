@@ -20,7 +20,7 @@ if __name__ == '__main__':
     control_matrices = sys.argv[1]
     benchmark_basedir = sys.argv[2]
 
-    r = r'^(\d+)\s+(\d+)\s+(\d+)\s+:\s+((?:\d+\s+)*\d+)\s+(ortho|non_ortho)$'
+    r = r'^(\d+)\s+(\d+)\s+(\d+)\s+:\s+((?:\d+\s+)*\d+)\s+(ortho|nonortho)$'
 
     with open(control_matrices, encoding='utf-8') as f:
         for line in f:
