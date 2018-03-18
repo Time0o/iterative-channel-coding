@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <iomanip>
 #ifndef NDEBUG
@@ -80,11 +81,10 @@ static std::string sprint_matrix(
 template<typename E>
 static bool bf_decode(CtrlMat const &H, int max_iter, double alpha,
     std::vector<double> const &in, std::vector<int> &out,
-    bool weighted = false, bool modified = false)
+    bool weighted = false, bool modified = false, bool improved = false)
 {
-    if (modified && !weighted)
-        throw std::invalid_argument(
-            "'modified' set to true but 'weighted' was not");
+    assert(!modified || weighted);
+    assert(!improved || modified && weighted);
 
 #ifndef NDEBUG
     if (modified)
@@ -97,7 +97,8 @@ static bool bf_decode(CtrlMat const &H, int max_iter, double alpha,
     std::cout << sprint_word("b", in) << '\n';
 #endif
 
-    std::vector<double> w(H.k, std::numeric_limits<double>::max());
+    size_t w_size = improved ? H.k * H.n : (weighted ? H.k : 0);
+    std::vector<double> w(w_size, std::numeric_limits<double>::max());
     std::vector<int> s(H.k, 0);
     std::vector<E> e(H.n, 0);
 
@@ -115,7 +116,7 @@ static bool bf_decode(CtrlMat const &H, int max_iter, double alpha,
             for (int j : H.K[i]) {
                 s[i] ^= out[j];
 
-                if (weighted && iter == 0)
+                if (iter == 0 && weighted && !improved)
                     w[i] = std::min(w[i], std::abs(in[j]));
             }
 
@@ -147,7 +148,22 @@ static bool bf_decode(CtrlMat const &H, int max_iter, double alpha,
                 e[j] = 0;
 
             for (int i : H.N[j]) {
-                if (modified) {
+
+                if (improved) {
+                    if (iter == 0) {
+                        for (int jp : H.K[i]) {
+                            if (jp == j)
+                                continue;
+
+                            w[i * H.n + j] =
+                                std::min(w[i * H.n + j], std::abs(in[jp]));
+                        }
+                    }
+                }
+
+                if (improved) {
+                    e[j] += (2 * s[i] - 1) * w[i * H.n + j];
+                } else if (modified) {
                     e[j] += (2 * s[i] - 1) * w[i];
                 } else if (weighted)
                     e[j] += (2 * s[i] - 1) * w[i];
@@ -205,52 +221,7 @@ bool MWBF::_decode(std::vector<double> const &in, std::vector<int> &out)
 
 bool IMWBF::_decode(std::vector<double> const &in, std::vector<int> &out)
 {
-    for (int j = 0; j < H.n; ++j)
-        out[j] = in[j] < 0.0;
-
-    std::vector<int> s(H.k, 0);
-    std::vector<double> w(H.k * H.n, std::numeric_limits<double>::max());
-    std::vector<double> e(H.n, 0.0);
-
-    for (int iter = 0; iter < max_iter; ++iter) {
-
-        bool is_codeword = true;
-        for(int i = 0; i < H.k; ++i) {
-            s[i] = 0;
-            for (int j : H.K[i])
-                s[i] ^= out[j];
-
-            if (s[i] == 1)
-                is_codeword = false;
-        }
-
-        if (is_codeword)
-            return true;
-
-        for (int j = 0; j < H.n; ++j) {
-            e[j] = -alpha * std::abs(in[j]);
-
-            for (int i : H.N[j]) {
-
-                int w_idx = i * H.n + j;
-                if (iter == 0) {
-                    for (int jp : H.K[i]) {
-                        if (jp == j)
-                            continue;
-
-                        w[w_idx] = std::min(w[w_idx], std::abs(in[jp]));
-                    }
-                }
-
-                e[j] += (2 * s[i] - 1) * w[w_idx];
-            }
-        }
-
-        int to_flip = std::distance(e.begin(), std::max_element(e.begin(), e.end()));
-        out[to_flip] ^= 1;
-    }
-
-    return false;
+    return bf_decode<double>(H, max_iter, alpha, in, out, true, true, true);
 }
 
 
