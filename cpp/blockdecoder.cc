@@ -316,8 +316,14 @@ static bool iterative_mlg_decode(CtrlMat const &H, int max_iter, double alpha,
     std::vector<double> const &in, std::vector<int> &out, bool soft, bool adaptive)
 {
 #ifndef NDEBUG
-    std::cout << "DECODING (soft MLG):\n";
-    std::cout << sprint_word("b", in) << "\n\n";
+    if (adaptive)
+        std::cout << "DECODING (adaptive soft MLG):\n";
+    else if (soft)
+        std::cout << "DECODING (soft MLG):\n";
+    else
+        std::cout << "DECODING (hard MLG):\n";
+
+    std::cout << sprint_word("b", in) << "\n";
 #endif
 
     int gamma = H.N[0].size();
@@ -347,7 +353,8 @@ static bool iterative_mlg_decode(CtrlMat const &H, int max_iter, double alpha,
         }
     }
 #ifndef NDEBUG
-    std::cout << sprint_word("r", r) << "\n";
+    std::cout << sprint_word("b_h", out) << "\n";
+    std::cout << sprint_word("r", r) << "\n\n";
 #endif
 
     if (adaptive) {
@@ -369,7 +376,7 @@ static bool iterative_mlg_decode(CtrlMat const &H, int max_iter, double alpha,
 
     for (int iter = 0; iter < max_iter; ++iter) {
 #ifndef NDEBUG
-        std::cout << "=== " << iter + 1 << ". iteration ===\n\n";
+        std::cout << "=== " << iter + 1 << ". iteration ===\n";
 #endif
 
         bool is_codeword = true;
@@ -386,12 +393,12 @@ static bool iterative_mlg_decode(CtrlMat const &H, int max_iter, double alpha,
 
         if (is_codeword) {
 #ifndef NDEBUG
-            std::cout << " => codeword\n\n";
+            std::cout << " => codeword\n";
 #endif
             return true;
         }
 #ifndef NDEBUG
-        std::cout << " => no codeword\n\n";
+        std::cout << " => no codeword\n";
 #endif
 
         for (int j = 0; j < H.n; ++j) {
@@ -420,12 +427,12 @@ static bool iterative_mlg_decode(CtrlMat const &H, int max_iter, double alpha,
         }
 #ifndef NDEBUG
         std::cout << sprint_word("r", r) << "\n";
-        std::cout << sprint_word("b_korr", out) << "\n";
+        std::cout << sprint_word(" => b_korr", out) << "\n\n";
 #endif
     }
 
 #ifndef NDEBUG
-    std::cout << " => failure\n\n";
+    std::cout << " => failure\n";
 #endif
     return false;
 }
