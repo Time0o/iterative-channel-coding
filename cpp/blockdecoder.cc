@@ -12,6 +12,7 @@
 #include "blockdecoder.h"
 #include "ctrlmat.h"
 
+#define EPSILON_FLIP 0.01
 
 /*== debug utility functions =================================================*/
 
@@ -24,6 +25,18 @@ static std::string sprint_word(char const *name, std::vector<T> const &vect)
     for (size_t i = 0u; i < vect.size(); ++i)
         ss << vect[i] << (i == vect.size() - 1 ? ')' : ' ');
     return ss.str();
+}
+
+template<typename T>
+static std::string sprint_set(char const *name, std::set<T> const &set)
+{
+    std::stringstream ss;
+    ss << name << " = {";
+    for (T const &val : set)
+        ss << val << ", ";
+    std::string ret = ss.str();
+    ret.replace(ret.size() - 2, 2, "}");
+    return ret;
 }
 
 static std::string sprint_matrix(
@@ -64,38 +77,52 @@ static std::string sprint_matrix(
 
 /*== bit flipping algorithms =================================================*/
 
-bool BF::_decode(std::vector<double> const &in, std::vector<int> &out)
+static bool bf_decode(CtrlMat const &H, int max_iter,
+    std::vector<double> const &in, std::vector<int> &out, bool weighted)
 {
 #ifndef NDEBUG
-    std::cout << "DECODING (BF):\n";
-    std::cout << sprint_word("b", in) << "\n";
-#endif
+    if (weighted)
+        std::cout << "DECODING (WBF):\n";
+    else
+        std::cout << "DECODING (BF):\n";
 
-    for (int j = 0; j < H.n; ++j)
-        out[j] = in[j] < 0.0 ? 1 : 0;
-#ifndef NDEBUG
-    std::cout << sprint_word("b_h", out) << "\n\n";
+    std::cout << sprint_word("b", in) << '\n';
 #endif
 
     std::vector<int> s(H.k, 0);
     std::vector<int> e(H.n, 0.0);
 
-    for (int iter = 0; iter < max_iter; ++iter) {
+    // used only during wbf
+    std::vector<double> w(H.k, std::numeric_limits<double>::max());
+    std::vector<double> e_real(H.n, 0.0);
+
+    for (int j = 0; j < H.n; ++j)
+        out[j] = in[j] < 0.0 ? 1 : 0;
 #ifndef NDEBUG
-        std::cout << "=== " << iter + 1 << ". iteration ===\n";
+    std::cout << sprint_word("b_h", out) << (weighted ? "\n" : "\n\n");
 #endif
+
+    for (int iter = 0; iter < max_iter; ++iter) {
 
         bool is_codeword = true;
         for(int i = 0; i < H.k; ++i) {
             s[i] = 0;
-            for (int j : H.K[i])
+            for (int j : H.K[i]) {
                 s[i] ^= out[j];
+
+                if (weighted && iter == 0)
+                    w[i] = std::min(w[i], std::abs(in[j]));
+            }
 
             if (s[i] == 1)
                 is_codeword = false;
         }
 #ifndef NDEBUG
-        std::cout << sprint_word("s", s) << "\n";
+        if (weighted && iter == 0)
+            std::cout << sprint_word("w", w) << "\n\n";
+
+        std::cout << "=== " << iter + 1 << ". iteration ===\n";
+        std::cout << sprint_word("s", s) << '\n';
 #endif
 
         if (is_codeword) {
@@ -109,21 +136,42 @@ bool BF::_decode(std::vector<double> const &in, std::vector<int> &out)
 #endif
 
         for (int j = 0; j < H.n; ++j) {
-            e[j] = 0.0;
-            for (int i : H.N[j])
-                e[j] += s[i];
+            if (weighted) {
+                e_real[j] = 0.0;
+                for (int i : H.N[j])
+                    e_real[j] += (2 * s[i] - 1) * w[i];
+            } else {
+                e[j] = 0.0;
+                for (int i : H.N[j])
+                    e[j] += s[i];
+            }
         }
 #ifndef NDEBUG
-        std::cout << sprint_word("e", e) << "\n";
+        if (weighted)
+            std::cout << sprint_word("e", e_real) << '\n';
+        else
+            std::cout << sprint_word("e", e) << '\n';
 #endif
 
-        int T_max = *std::max_element(e.begin(), e.end());
         std::set<int> to_flip;
+        if (weighted) {
+            double T_max = *std::max_element(e_real.begin(), e_real.end());
 
-        for (int j = 0; j < H.n; ++j) {
-            if (e[j] == T_max)
-                to_flip.insert(j);
+            for (int j = 0; j < H.n; ++j) {
+                if (std::abs(e_real[j] - T_max) < EPSILON_FLIP)
+                    to_flip.insert(j);
+            }
+        } else {
+            int T_max = *std::max_element(e.begin(), e.end());
+
+            for (int j = 0; j < H.n; ++j) {
+                if (e[j] == T_max)
+                    to_flip.insert(j);
+            }
         }
+#ifndef NDEBUG
+        std::cout << sprint_set("flip", to_flip) << '\n';
+#endif
 
         for (int index : to_flip)
             out[index] ^= 1;
@@ -138,45 +186,14 @@ bool BF::_decode(std::vector<double> const &in, std::vector<int> &out)
     return false;
 }
 
+bool BF::_decode(std::vector<double> const &in, std::vector<int> &out)
+{
+    return bf_decode(H, max_iter, in, out, false);
+}
+
 bool WBF::_decode(std::vector<double> const &in, std::vector<int> &out)
 {
-    for (int j = 0; j < H.n; ++j)
-        out[j] = in[j] < 0.0 ? 1 : 0;
-
-    std::vector<int> s(H.k, 0);
-    std::vector<double> w(H.k, std::numeric_limits<double>::max());
-    std::vector<double> e(H.n, 0.0);
-
-    for (int iter = 0; iter < max_iter; ++iter) {
-
-        bool is_codeword = true;
-        for(int i = 0; i < H.k; ++i) {
-            s[i] = 0;
-            for (int j : H.K[i]) {
-                s[i] ^= out[j];
-
-                if (iter == 0)
-                    w[i] = std::min(w[i], std::abs(in[j]));
-            }
-
-            if (s[i] == 1)
-                is_codeword = false;
-        }
-
-        if (is_codeword)
-            return true;
-
-        for (int j = 0; j < H.n; ++j) {
-            e[j] = 0.0;
-            for (int i : H.N[j])
-                e[j] += (2 * s[i] - 1) * w[i];
-        }
-
-        int to_flip = std::distance(e.begin(), std::max_element(e.begin(), e.end()));
-        out[to_flip] ^= 1;
-    }
-
-    return false;
+    return bf_decode(H, max_iter, in, out, true);
 }
 
 bool MWBF::_decode(std::vector<double> const &in, std::vector<int> &out)
