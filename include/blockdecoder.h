@@ -88,6 +88,14 @@ private:
     bool _decode(std::vector<double> const &in, std::vector<int> &out);
 };
 
+class OneStepMLG : public IterativeBlockdecoder
+{
+public:
+    OneStepMLG(CtrlMat const &H) : IterativeBlockdecoder(H) {}
+private:
+    bool _decode(std::vector<double> const &in, std::vector<int> &out);
+};
+
 class HardMLG : public IterativeBlockdecoder
 {
 public:

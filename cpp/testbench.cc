@@ -156,6 +156,8 @@ int main(int argc, char **argv)
     std::vector<char const *> decoder_names;
 
     if (is_ortho) {
+        decoders.push_back(std::make_unique<OneStepMLG>(H));
+        decoder_names.push_back("one-step MLG");
         decoders.push_back(std::make_unique<HardMLG>(H));
         decoder_names.push_back("hard MLG");
         decoders.push_back(std::make_unique<SoftMLG>(H));

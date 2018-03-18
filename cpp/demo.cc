@@ -5,6 +5,17 @@
 
 int main()
 {
+    // One Step MLG
+    CtrlMat H1(15, 7, 5, "11010001", true);
+
+    std::vector<double> b1 {-1.0, -1.0, -1.0, 1.0, -1.0, 1.0, -1.0, -1.0, -1.0,
+                            1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+
+    OneStepMLG one_step_mlg(H1);
+    one_step_mlg.decode(b1);
+
+    std::cout << '\n';
+
     // Min Sum
     std::vector<std::vector<int>> H;
     H.push_back({1, 1, 1, 1, 0, 0, 0});

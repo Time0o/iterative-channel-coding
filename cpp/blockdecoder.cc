@@ -266,7 +266,64 @@ bool IMWBF::_decode(std::vector<double> const &in, std::vector<int> &out)
 
 /*== MLG variants ============================================================*/
 
-static bool mlg_decode(CtrlMat const &H, int max_iter, double alpha,
+bool OneStepMLG::_decode(std::vector<double> const &in, std::vector<int> &out)
+{
+#ifndef NDEBUG
+    std::cout << "DECODING (one step MLG):\n";
+    std::cout << sprint_word("b", in) << "\n";
+#endif
+
+    int gamma_half = H.N[0].size() / 2;
+
+    std::vector<int> s(H.n);
+    std::vector<int> e(H.n);
+
+    for (int j = 0; j < H.n; ++j)
+        out[j] = in[j] < 0.0 ? 1 : 0;
+#ifndef NDEBUG
+    std::cout << sprint_word("b_h", out) << "\n";
+#endif
+
+    bool is_codeword = true;
+    for (int i = 0; i < H.n; ++i) {
+        s[i] = 0;
+        for (int j : H.K[i])
+            s[i] ^= out[j];
+
+        if (s[i] == 1)
+            is_codeword = false;
+    }
+#ifndef NDEBUG
+    std::cout << sprint_word("s", s) << "\n";
+#endif
+
+    if (is_codeword) {
+#ifndef NDEBUG
+        std::cout << " => codeword\n";
+#endif
+        return true;
+    }
+#ifndef NDEBUG
+    std::cout << " => no codeword\n";
+#endif
+
+    for (int j = 0; j < H.n; ++j) {
+        e[j] = 0;
+        for (int i : H.N[j])
+            e[j] += s[i];
+
+        if (e[j] > gamma_half)
+            out[j] ^= 1;
+    }
+#ifndef NDEBUG
+    std::cout << sprint_word("e", e) << "\n";
+    std::cout << sprint_word(" => b_korr", out) << "\n";
+#endif
+
+    return true;
+}
+
+static bool iterative_mlg_decode(CtrlMat const &H, int max_iter, double alpha,
     std::vector<double> const &in, std::vector<int> &out, bool soft, bool adaptive)
 {
 #ifndef NDEBUG
@@ -386,18 +443,19 @@ static bool mlg_decode(CtrlMat const &H, int max_iter, double alpha,
 
 bool HardMLG::_decode(std::vector<double> const &in, std::vector<int> &out)
 {
-    return mlg_decode(H, max_iter, 0.0, in, out, false, false);
+    return iterative_mlg_decode(H, max_iter, 0.0, in, out, false, false);
 }
 
 bool SoftMLG::_decode(std::vector<double> const &in, std::vector<int> &out)
 {
-    return mlg_decode(H, max_iter, 0.0, in, out, true, false);
+    return iterative_mlg_decode(H, max_iter, 0.0, in, out, true, false);
 }
 
 bool AdaptiveSoftMLG::_decode(std::vector<double> const &in, std::vector<int> &out)
 {
-    return mlg_decode(H, max_iter, alpha, in, out, true, true);
+    return iterative_mlg_decode(H, max_iter, alpha, in, out, true, true);
 }
+
 
 /*== Min Sum variants ========================================================*/
 
