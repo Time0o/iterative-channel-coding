@@ -89,14 +89,13 @@ static IterativeBenchmarkResult benchmark_iterative(IterativeBlockdecoder &dec)
                     std::vector<int> b = dec.get_result();
                     if (std::find(b.begin(), b.end(), 1) == b.end()) {
                         ++correct;
+                        time += dec.get_exec_time();
                     } else {
                         ++incorrect;
                     }
                 } else {
                     ++failures;
                 }
-
-                time += dec.get_exec_time();
             }
 
             if (correct > optimal_alpha_correct) {
@@ -113,7 +112,10 @@ static IterativeBenchmarkResult benchmark_iterative(IterativeBlockdecoder &dec)
 
         res.ebn0.push_back(ebn0);
         res.alpha.push_back(optimal_alpha);
-        res.time.push_back(optimal_alpha_time / N_AVG);
+        if (optimal_alpha_correct == 0)
+            res.time.push_back(std::nan(""));
+        else
+            res.time.push_back(optimal_alpha_time / optimal_alpha_correct);
 
         res.correct.push_back(optimal_alpha_correct);
         res.incorrect.push_back(optimal_alpha_incorrect);
