@@ -77,6 +77,7 @@ static std::string sprint_matrix(
 
 /*== bit flipping algorithms =================================================*/
 
+template<typename E>
 static bool bf_decode(CtrlMat const &H, int max_iter,
     std::vector<double> const &in, std::vector<int> &out, bool weighted)
 {
@@ -90,11 +91,10 @@ static bool bf_decode(CtrlMat const &H, int max_iter,
 #endif
 
     std::vector<int> s(H.k, 0);
-    std::vector<int> e(H.n, 0.0);
+    std::vector<E> e(H.n, 0.0);
 
     // used only during wbf
     std::vector<double> w(H.k, std::numeric_limits<double>::max());
-    std::vector<double> e_real(H.n, 0.0);
 
     for (int j = 0; j < H.n; ++j)
         out[j] = in[j] < 0.0 ? 1 : 0;
@@ -136,35 +136,26 @@ static bool bf_decode(CtrlMat const &H, int max_iter,
 #endif
 
         for (int j = 0; j < H.n; ++j) {
-            if (weighted) {
-                e_real[j] = 0.0;
-                for (int i : H.N[j])
-                    e_real[j] += (2 * s[i] - 1) * w[i];
-            } else {
-                e[j] = 0.0;
-                for (int i : H.N[j])
+            e[j] = 0;
+            for (int i : H.N[j]) {
+                if (weighted)
+                    e[j] += (2 * s[i] - 1) * w[i];
+                else
                     e[j] += s[i];
             }
         }
 #ifndef NDEBUG
-        if (weighted)
-            std::cout << sprint_word("e", e_real) << '\n';
-        else
-            std::cout << sprint_word("e", e) << '\n';
+        std::cout << sprint_word("e", e) << '\n';
 #endif
 
         std::set<int> to_flip;
-        if (weighted) {
-            double T_max = *std::max_element(e_real.begin(), e_real.end());
+        E T_max = *std::max_element(e.begin(), e.end());
 
-            for (int j = 0; j < H.n; ++j) {
-                if (std::abs(e_real[j] - T_max) < EPSILON_FLIP)
+        for (int j = 0; j < H.n; ++j) {
+            if (weighted) {
+                if (std::abs(e[j] - T_max) < EPSILON_FLIP)
                     to_flip.insert(j);
-            }
-        } else {
-            int T_max = *std::max_element(e.begin(), e.end());
-
-            for (int j = 0; j < H.n; ++j) {
+            } else {
                 if (e[j] == T_max)
                     to_flip.insert(j);
             }
@@ -188,12 +179,12 @@ static bool bf_decode(CtrlMat const &H, int max_iter,
 
 bool BF::_decode(std::vector<double> const &in, std::vector<int> &out)
 {
-    return bf_decode(H, max_iter, in, out, false);
+    return bf_decode<int>(H, max_iter, in, out, false);
 }
 
 bool WBF::_decode(std::vector<double> const &in, std::vector<int> &out)
 {
-    return bf_decode(H, max_iter, in, out, true);
+    return bf_decode<double>(H, max_iter, in, out, true);
 }
 
 bool MWBF::_decode(std::vector<double> const &in, std::vector<int> &out)
