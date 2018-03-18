@@ -84,7 +84,7 @@ static bool bf_decode(CtrlMat const &H, int max_iter, double alpha,
     bool weighted = false, bool modified = false, bool improved = false)
 {
     assert(!modified || weighted);
-    assert(!improved || modified && weighted);
+    assert(!improved || (modified && weighted));
 
 #ifndef NDEBUG
     if (modified)
