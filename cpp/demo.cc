@@ -5,6 +5,24 @@
 
 int main()
 {
+    // BF
+    std::vector<std::vector<int>> H_bf_vals;
+    H_bf_vals.push_back({1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1});
+    H_bf_vals.push_back({1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0});
+    H_bf_vals.push_back({1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 0});
+    H_bf_vals.push_back({0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0});
+    H_bf_vals.push_back({0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1});
+    H_bf_vals.push_back({0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1});
+    CtrlMat H_bf(12, 6, 0, H_bf_vals);
+
+    std::vector<double> b_bf {-0.9, -0.9, 1.0, 0.1, 0.3, 1.0, 0.8, -0.7, 1.0,
+                               0.9, -1.0, 0.4};
+
+    BF bf(H_bf);
+    bf.decode(b_bf);
+
+    std::cout << '\n';
+
     // One Step MLG
     CtrlMat H1(15, 7, 5, "11010001", true);
 

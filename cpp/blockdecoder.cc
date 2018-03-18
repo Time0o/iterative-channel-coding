@@ -78,13 +78,24 @@ static bool hard_decide(std::vector<int> const &out, CtrlMat const &H)
 
 bool BF::_decode(std::vector<double> const &in, std::vector<int> &out)
 {
+#ifndef NDEBUG
+    std::cout << "DECODING (BF):\n";
+    std::cout << sprint_word("b", in) << "\n";
+#endif
+
     for (int j = 0; j < H.n; ++j)
         out[j] = in[j] < 0.0 ? 1 : 0;
+#ifndef NDEBUG
+    std::cout << sprint_word("b_h", out) << "\n\n";
+#endif
 
     std::vector<int> s(H.k, 0);
     std::vector<int> e(H.n, 0.0);
 
     for (int iter = 0; iter < max_iter; ++iter) {
+#ifndef NDEBUG
+        std::cout << "=== " << iter + 1 << ". iteration ===\n";
+#endif
 
         bool is_codeword = true;
         for(int i = 0; i < H.k; ++i) {
@@ -95,15 +106,28 @@ bool BF::_decode(std::vector<double> const &in, std::vector<int> &out)
             if (s[i] == 1)
                 is_codeword = false;
         }
+#ifndef NDEBUG
+        std::cout << sprint_word("s", s) << "\n";
+#endif
 
-        if (is_codeword)
+        if (is_codeword) {
+#ifndef NDEBUG
+            std::cout << " => codeword\n";
+#endif
             return true;
+        }
+#ifndef NDEBUG
+        std::cout << " => no codeword\n";
+#endif
 
         for (int j = 0; j < H.n; ++j) {
             e[j] = 0.0;
             for (int i : H.N[j])
                 e[j] += s[i];
         }
+#ifndef NDEBUG
+        std::cout << sprint_word("e", e) << "\n";
+#endif
 
         int T_max = *std::max_element(e.begin(), e.end());
         std::set<int> to_flip;
@@ -115,8 +139,14 @@ bool BF::_decode(std::vector<double> const &in, std::vector<int> &out)
 
         for (int index : to_flip)
             out[index] ^= 1;
+#ifndef NDEBUG
+        std::cout << sprint_word(" => b_korr", out) << "\n\n";
+#endif
     }
 
+#ifndef NDEBUG
+    std::cout << " => failure\n";
+#endif
     return false;
 }
 
