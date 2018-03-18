@@ -104,6 +104,18 @@ private:
     bool _decode(std::vector<double> const &in, std::vector<int> &out);
 };
 
+class AdaptiveSoftMLG : public IterativeBlockdecoder
+{
+public:
+    AdaptiveSoftMLG(CtrlMat const &H) : IterativeBlockdecoder(H) {}
+
+    double get_alpha_low() const { return 0.0; }
+    double get_alpha_high() const { return 1.0; }
+    bool has_adaptable_alpha() const { return true; }
+private:
+    bool _decode(std::vector<double> const &in, std::vector<int> &out);
+};
+
 class MinSum : public IterativeBlockdecoder
 {
 public:

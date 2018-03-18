@@ -266,8 +266,8 @@ bool IMWBF::_decode(std::vector<double> const &in, std::vector<int> &out)
 
 /*== MLG variants ============================================================*/
 
-static bool mlg_decode(CtrlMat const &H, int max_iter,
-    std::vector<double> const &in, std::vector<int> &out, bool soft)
+static bool mlg_decode(CtrlMat const &H, int max_iter, double alpha,
+    std::vector<double> const &in, std::vector<int> &out, bool soft, bool adaptive)
 {
 #ifndef NDEBUG
     std::cout << "DECODING (soft MLG):\n";
@@ -284,19 +284,42 @@ static bool mlg_decode(CtrlMat const &H, int max_iter,
     std::vector<int> s(H.n);
     std::vector<int> e(H.n);
 
+    // used only during adaptive soft MLG
+    std::vector<double> r_real(H.n);
+    std::vector<int> w(H.k * H.n, std::numeric_limits<int>::max());
+
     for (int j = 0; j < H.n; ++j) {
         out[j] = in[j] < 0.0 ? 1 : 0;
-        if (soft) {
+        if (adaptive) {
+            double q = std::round(in[j] * max);
+            r_real[j] = std::min(std::max(q, (double) min), (double) max);
+        } else if (soft) {
             int q = std::round(in[j] * max);
             r[j] = std::min(std::max(q, min), max);
         } else {
             r[j] = out[j] ? min : max;
         }
     }
-
 #ifndef NDEBUG
     std::cout << sprint_word("r", r) << "\n";
 #endif
+
+    if (adaptive) {
+        for (int i = 0; i < H.k; ++i) {
+            for (int j = 0; j < H.n; ++j) {
+                int min = std::numeric_limits<int>::max();
+
+                for (int jp : H.K[i]) {
+                    if (jp == j)
+                        continue;
+
+                    min = std::min(min, std::abs((int) r_real[jp]));
+                }
+
+                w[i * H.n + j] = min;
+            }
+        }
+    }
 
     for (int iter = 0; iter < max_iter; ++iter) {
 #ifndef NDEBUG
@@ -327,16 +350,27 @@ static bool mlg_decode(CtrlMat const &H, int max_iter,
 
         for (int j = 0; j < H.n; ++j) {
             e[j] = 0;
-            for (int i : H.N[j])
-                e[j] += 2 * (s[i] ^ out[j]) - 1;
+            for (int i : H.N[j]) {
+                if (adaptive) {
+                    e[j] += (2 * (s[i] ^ out[j]) - 1) * w[i * H.n + j];
+                } else {
+                    e[j] += 2 * (s[i] ^ out[j]) - 1;
+                }
+            }
         }
 #ifndef NDEBUG
         std::cout << sprint_word("e", e) << "\n";
 #endif
 
         for (int j = 0; j < H.n; ++j) {
-            r[j] = std::min(std::max(r[j] - e[j], min), max);
-            out[j] = r[j] < 0 ? 1 : 0;
+            if (adaptive) {
+                r_real[j] = std::min(std::max(
+                    r_real[j] - alpha * (double) e[j], (double) min), (double) max);
+                out[j] = r_real[j] < 0.0 ? 1 : 0;
+            } else {
+                r[j] = std::min(std::max(r[j] - e[j], min), max);
+                out[j] = r[j] < 0 ? 1 : 0;
+            }
         }
 #ifndef NDEBUG
         std::cout << sprint_word("r", r) << "\n";
@@ -352,14 +386,18 @@ static bool mlg_decode(CtrlMat const &H, int max_iter,
 
 bool HardMLG::_decode(std::vector<double> const &in, std::vector<int> &out)
 {
-    return mlg_decode(H, max_iter, in, out, false);
+    return mlg_decode(H, max_iter, 0.0, in, out, false, false);
 }
 
 bool SoftMLG::_decode(std::vector<double> const &in, std::vector<int> &out)
 {
-    return mlg_decode(H, max_iter, in, out, true);
+    return mlg_decode(H, max_iter, 0.0, in, out, true, false);
 }
 
+bool AdaptiveSoftMLG::_decode(std::vector<double> const &in, std::vector<int> &out)
+{
+    return mlg_decode(H, max_iter, alpha, in, out, true, true);
+}
 
 /*== Min Sum variants ========================================================*/
 

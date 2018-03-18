@@ -160,6 +160,8 @@ int main(int argc, char **argv)
         decoder_names.push_back("hard MLG");
         decoders.push_back(std::make_unique<SoftMLG>(H));
         decoder_names.push_back("soft MLG");
+        decoders.push_back(std::make_unique<AdaptiveSoftMLG>(H));
+        decoder_names.push_back("adaptive soft MLG");
     } else {
         decoders.push_back(std::make_unique<BF>(H));
         decoder_names.push_back("BF");
