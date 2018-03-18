@@ -64,18 +64,6 @@ static std::string sprint_matrix(
 
 /*== bit flipping algorithms =================================================*/
 
-static bool hard_decide(std::vector<int> const &out, CtrlMat const &H)
-{
-    for (int i = 0; i < H.k; ++i) {
-        int s = 0;
-        for (int j : H.K[i])
-            s ^= out[j];
-        if (s == 1)
-            return false;
-    }
-    return true;
-}
-
 bool BF::_decode(std::vector<double> const &in, std::vector<int> &out)
 {
 #ifndef NDEBUG
@@ -484,6 +472,18 @@ bool AdaptiveSoftMLG::_decode(std::vector<double> const &in, std::vector<int> &o
 
 
 /*== Min Sum variants ========================================================*/
+
+static bool hard_decide(std::vector<int> const &out, CtrlMat const &H)
+{
+    for (int i = 0; i < H.k; ++i) {
+        int s = 0;
+        for (int j : H.K[i])
+            s ^= out[j];
+         if (s == 1)
+            return false;
+    }
+    return true;
+}
 
 static bool min_sum_decode(CtrlMat const &H, int max_iter, double alpha,
     std::vector<double> const &in, std::vector<int> &out, bool normalized, bool offset)
