@@ -12,7 +12,7 @@
 #include "blockdecoder.h"
 #include "ctrlmat.h"
 
-#define EPSILON_FLIP 0.01
+#define EPSILON_FLIP 0.001
 
 /*== debug utility functions =================================================*/
 
@@ -78,11 +78,18 @@ static std::string sprint_matrix(
 /*== bit flipping algorithms =================================================*/
 
 template<typename E>
-static bool bf_decode(CtrlMat const &H, int max_iter,
-    std::vector<double> const &in, std::vector<int> &out, bool weighted)
+static bool bf_decode(CtrlMat const &H, int max_iter, double alpha,
+    std::vector<double> const &in, std::vector<int> &out,
+    bool weighted = false, bool modified = false)
 {
+    if (modified && !weighted)
+        throw std::invalid_argument(
+            "'modified' set to true but 'weighted' was not");
+
 #ifndef NDEBUG
-    if (weighted)
+    if (modified)
+        std::cout << "DECODING (MWBF):\n";
+    else if (weighted)
         std::cout << "DECODING (WBF):\n";
     else
         std::cout << "DECODING (BF):\n";
@@ -90,11 +97,9 @@ static bool bf_decode(CtrlMat const &H, int max_iter,
     std::cout << sprint_word("b", in) << '\n';
 #endif
 
-    std::vector<int> s(H.k, 0);
-    std::vector<E> e(H.n, 0.0);
-
-    // used only during wbf
     std::vector<double> w(H.k, std::numeric_limits<double>::max());
+    std::vector<int> s(H.k, 0);
+    std::vector<E> e(H.n, 0);
 
     for (int j = 0; j < H.n; ++j)
         out[j] = in[j] < 0.0 ? 1 : 0;
@@ -136,9 +141,15 @@ static bool bf_decode(CtrlMat const &H, int max_iter,
 #endif
 
         for (int j = 0; j < H.n; ++j) {
-            e[j] = 0;
+            if (modified)
+                e[j] = -alpha * std::abs(in[j]);
+            else
+                e[j] = 0;
+
             for (int i : H.N[j]) {
-                if (weighted)
+                if (modified) {
+                    e[j] += (2 * s[i] - 1) * w[i];
+                } else if (weighted)
                     e[j] += (2 * s[i] - 1) * w[i];
                 else
                     e[j] += s[i];
@@ -179,53 +190,17 @@ static bool bf_decode(CtrlMat const &H, int max_iter,
 
 bool BF::_decode(std::vector<double> const &in, std::vector<int> &out)
 {
-    return bf_decode<int>(H, max_iter, in, out, false);
+    return bf_decode<int>(H, max_iter, 0.0, in, out);
 }
 
 bool WBF::_decode(std::vector<double> const &in, std::vector<int> &out)
 {
-    return bf_decode<double>(H, max_iter, in, out, true);
+    return bf_decode<double>(H, max_iter, 0.0, in, out, true);
 }
 
 bool MWBF::_decode(std::vector<double> const &in, std::vector<int> &out)
 {
-    for (int j = 0; j < H.n; ++j)
-        out[j] = in[j] < 0.0;
-
-    std::vector<double> w(H.k, std::numeric_limits<double>::max());
-    std::vector<int> s(H.k, 0);
-    std::vector<double> e(H.n, 0.0);
-
-    for (int iter = 0; iter < max_iter; ++iter) {
-
-        bool is_codeword = true;
-        for(int i = 0; i < H.k; ++i) {
-            s[i] = 0;
-            for (int j : H.K[i]) {
-                s[i] ^= out[j];
-
-                if (iter == 0)
-                    w[i] = std::min(w[i], std::abs(in[j]));
-            }
-
-            if (s[i] == 1)
-                is_codeword = false;
-        }
-
-        if (is_codeword)
-            return true;
-
-        for (int j = 0; j < H.n; ++j) {
-            e[j] = -alpha * std::abs(in[j]);
-            for (int i : H.N[j])
-                e[j] += (2 * s[i] - 1) * w[i];
-        }
-
-        int to_flip = std::distance(e.begin(), std::max_element(e.begin(), e.end()));
-        out[to_flip] ^= 1;
-    }
-
-    return false;
+    return bf_decode<double>(H, max_iter, alpha, in, out, true, true);
 }
 
 bool IMWBF::_decode(std::vector<double> const &in, std::vector<int> &out)
