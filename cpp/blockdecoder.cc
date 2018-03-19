@@ -284,6 +284,7 @@ bool OneStepMLG::_decode(std::vector<double> const &in, std::vector<int> &out)
     return true;
 }
 
+template<typename R>
 static bool iterative_mlg_decode(CtrlMat const &H, int max_iter, double alpha,
     std::vector<double> const &in, std::vector<int> &out, bool soft, bool adaptive)
 {
@@ -301,24 +302,20 @@ static bool iterative_mlg_decode(CtrlMat const &H, int max_iter, double alpha,
     int gamma = H.N[0].size();
 
     int x = 3;
-    int max = soft ? (1 << (x - 1)) - 1 : gamma;
-    int min = -max;
+    R max = soft ? (1 << (x - 1)) - 1 : gamma;
+    R min = -max;
 
-    std::vector<int> r(H.n);
+    std::vector<R> r(H.n);
     std::vector<int> s(H.n);
     std::vector<int> e(H.n);
 
     // used only during adaptive soft MLG
-    std::vector<double> r_real(H.n);
     std::vector<int> w(H.k * H.n, std::numeric_limits<int>::max());
 
     for (int j = 0; j < H.n; ++j) {
         out[j] = in[j] < 0.0 ? 1 : 0;
-        if (adaptive) {
-            double q = std::round(in[j] * max);
-            r_real[j] = std::min(std::max(q, (double) min), (double) max);
-        } else if (soft) {
-            int q = std::round(in[j] * max);
+        if (soft) {
+            R q = std::round(in[j] * max);
             r[j] = std::min(std::max(q, min), max);
         } else {
             r[j] = out[j] ? min : max;
@@ -332,13 +329,13 @@ static bool iterative_mlg_decode(CtrlMat const &H, int max_iter, double alpha,
     if (adaptive) {
         for (int i = 0; i < H.k; ++i) {
             for (int j = 0; j < H.n; ++j) {
-                int min = std::numeric_limits<int>::max();
+                R wij_min = std::numeric_limits<int>::max();
 
                 for (int jp : H.K[i]) {
                     if (jp == j)
                         continue;
 
-                    min = std::min(min, std::abs((int) r_real[jp]));
+                    wij_min = std::min(wij_min, std::abs(r[jp]));
                 }
 
                 w[i * H.n + j] = min;
@@ -389,13 +386,12 @@ static bool iterative_mlg_decode(CtrlMat const &H, int max_iter, double alpha,
 
         for (int j = 0; j < H.n; ++j) {
             if (adaptive) {
-                r_real[j] = std::min(std::max(
-                    r_real[j] - alpha * (double) e[j], (double) min), (double) max);
-                out[j] = r_real[j] < 0.0 ? 1 : 0;
+                r[j] = std::min(std::max(
+                    r[j] - alpha * e[j], (double) min), (double) max);
             } else {
                 r[j] = std::min(std::max(r[j] - e[j], min), max);
-                out[j] = r[j] < 0 ? 1 : 0;
             }
+            out[j] = r[j] < 0 ? 1 : 0;
         }
 #ifndef NDEBUG
         std::cout << sprint_word("r", r) << "\n";
@@ -411,17 +407,17 @@ static bool iterative_mlg_decode(CtrlMat const &H, int max_iter, double alpha,
 
 bool HardMLG::_decode(std::vector<double> const &in, std::vector<int> &out)
 {
-    return iterative_mlg_decode(H, max_iter, 0.0, in, out, false, false);
+    return iterative_mlg_decode<int>(H, max_iter, 0.0, in, out, false, false);
 }
 
 bool SoftMLG::_decode(std::vector<double> const &in, std::vector<int> &out)
 {
-    return iterative_mlg_decode(H, max_iter, 0.0, in, out, true, false);
+    return iterative_mlg_decode<int>(H, max_iter, 0.0, in, out, true, false);
 }
 
 bool AdaptiveSoftMLG::_decode(std::vector<double> const &in, std::vector<int> &out)
 {
-    return iterative_mlg_decode(H, max_iter, alpha, in, out, true, true);
+    return iterative_mlg_decode<double>(H, max_iter, alpha, in, out, true, true);
 }
 
 
