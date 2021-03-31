@@ -1,15 +1,32 @@
+<p align="center">
+  <img src="preview.png">
+</p>
+
+# Iterative Channel Coding
+
+## Introduction
+
 A quantitative comparison of different iterative decoding algorithms applied to
-classical channel code descriptions.
+classical channel code descriptions. Implemented algorithms are:
 
-# Prerequisites
-* make
-* a C++ compiler supporting C++11
-* Python 3.*
+| Code Type      | Code                |
+| -------------- | ------------------- |
+| orthogonal     | one-step MLG        |
+| orthogonal     | hard MLG            |
+| orthogonal     | soft MLG            |
+| orthogonal     | adaptive soft MLG   |
+| non-orthogonal | BF                  |
+| non-orthogonal | WBF                 |
+| non-orthogonal | MWBF                |
+| non-orthogonal | IMWBF               |
+| non-orthogonal | Min Sum             |
+| non-orthogonal | normalized Min Sum  |
+| non-orthogonal | offset Min Sum      |
 
-# Running demos
+## Running Demos
 Run `make demo` to see the decoding schemes in action.
 
-# Running benchmarks
+## Running Benchmarks
 Run `make benchmark` to run the decoding performance benchmarks for the code
 descriptions given in `resources/control_matrices.txt`. Results are placed
 per code in appropriately named subfolders of the `benchmarks` directory. They
